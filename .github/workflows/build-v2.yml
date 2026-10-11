@@ -13,8 +13,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
@@ -26,15 +24,6 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
-
-      - name: Show system info
-        run: |
-          echo "===== SYSTEM INFO ====="
-          uname -a
-          python3 --version
-          java -version
-          df -h
-          free -h
 
       - name: Install system dependencies
         run: |
@@ -51,50 +40,34 @@ jobs:
           pip install --upgrade pip setuptools wheel
           pip install buildozer==1.5.0 cython==0.29.36
 
-      - name: Verify files
+      - name: Verify repo contents
         run: |
-          echo "===== FILES IN REPO ====="
+          echo "===== REPO ROOT ====="
+          pwd
           ls -la
           echo ""
-          echo "===== buildozer.spec ====="
-          cat buildozer.spec
+          echo "===== buildozer.spec exists? ====="
+          test -f buildozer.spec && echo "YES" || echo "NO"
           echo ""
-          echo "===== assets/ ====="
-          ls -la assets/ || echo "No assets folder"
+          echo "===== buildozer.spec first 30 lines ====="
+          head -30 buildozer.spec || echo "cannot read spec"
 
-      - name: Build APK
+      - name: Build APK (with live output)
         run: |
-          yes | buildozer -v android debug 2>&1 | tee build.log
+          yes | buildozer -v android debug
         continue-on-error: true
 
-      - name: Show build log (first 100 lines)
+      - name: After build - show dirs
         if: always()
         run: |
-          echo "===== FIRST 100 LINES OF BUILD LOG ====="
-          head -100 build.log || echo "No build.log found"
-
-      - name: Show build log (last 200 lines)
-        if: always()
-        run: |
-          echo "===== LAST 200 LINES OF BUILD LOG ====="
-          tail -200 build.log || echo "No build.log found"
-
-      - name: Search for errors in log
-        if: always()
-        run: |
-          echo "===== ERROR LINES ====="
-          grep -nE "ERROR|Error|error|FAIL|Failed|failed" build.log | tail -50 || echo "No error lines found"
-
-      - name: Upload build log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-log
-          path: build.log
-          if-no-files-found: ignore
+          echo "===== bin/ directory ====="
+          ls -la bin/ 2>/dev/null || echo "no bin dir"
+          echo ""
+          echo "===== .buildozer dir ====="
+          ls -la .buildozer/ 2>/dev/null || echo "no .buildozer dir"
 
       - name: Upload APK
-        if: success()
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: coolercontrol-apk
