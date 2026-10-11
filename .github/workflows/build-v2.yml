@@ -8,11 +8,13 @@ on:
 jobs:
   build:
     runs-on: ubuntu-22.04
-    timeout-minutes: 180
+    timeout-minutes: 240
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
@@ -25,36 +27,63 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
+      - name: Show system info
+        run: |
+          echo "===== SYSTEM INFO ====="
+          uname -a
+          python3 --version
+          java -version
+          df -h
+          free -h
+
       - name: Install system dependencies
         run: |
           sudo apt update
           sudo apt install -y \
             git zip unzip openjdk-17-jdk \
-            autoconf libtool pkg-config \
+            autoconf automake libtool pkg-config \
             zlib1g-dev libncurses5-dev libncursesw5-dev \
             libtinfo5 cmake libffi-dev libssl-dev \
-            libltdl-dev
+            libltdl-dev ccache
 
       - name: Install pip and buildozer
         run: |
           pip install --upgrade pip setuptools wheel
           pip install buildozer==1.5.0 cython==0.29.36
 
-      - name: Verify buildozer.spec exists
+      - name: Verify files
         run: |
+          echo "===== FILES IN REPO ====="
           ls -la
+          echo ""
+          echo "===== buildozer.spec ====="
           cat buildozer.spec
+          echo ""
+          echo "===== assets/ ====="
+          ls -la assets/ || echo "No assets folder"
 
       - name: Build APK
         run: |
           yes | buildozer -v android debug 2>&1 | tee build.log
         continue-on-error: true
 
-      - name: Show build log tail
+      - name: Show build log (first 100 lines)
         if: always()
         run: |
-          echo "===== TAIL OF BUILD LOG ====="
-          tail -100 build.log || echo "No build.log found"
+          echo "===== FIRST 100 LINES OF BUILD LOG ====="
+          head -100 build.log || echo "No build.log found"
+
+      - name: Show build log (last 200 lines)
+        if: always()
+        run: |
+          echo "===== LAST 200 LINES OF BUILD LOG ====="
+          tail -200 build.log || echo "No build.log found"
+
+      - name: Search for errors in log
+        if: always()
+        run: |
+          echo "===== ERROR LINES ====="
+          grep -nE "ERROR|Error|error|FAIL|Failed|failed" build.log | tail -50 || echo "No error lines found"
 
       - name: Upload build log
         if: always()
